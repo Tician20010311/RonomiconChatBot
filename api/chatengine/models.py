@@ -42,3 +42,19 @@ class SimpleCommands(models.Model):
     def __str__(self):
         return f"{self.command} -> {self.response}"
     
+
+class ChatLog(models.Model):
+    chatbot = models.ForeignKey(ChatBot, on_delete=models.CASCADE)
+    platform = models.CharField(max_length=200)
+    chatuser = models.ForeignKey(ChatUser, on_delete=models.CASCADE , blank=True, null=True)    
+    sender = models.CharField(max_length=200)
+    message = models.TextField()
+    context = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
+    def __str__(self):
+        return f"{self.sender} ({self.created_at}/{self.platform})"
+    
+    class Meta:
+        ordering = ['-created_at']
