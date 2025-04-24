@@ -1,1 +1,1 @@
-docker exec -it chatbot-api-1 bash
+docker exec -it ronomiconchatbot-api-1 bash
