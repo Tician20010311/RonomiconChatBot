@@ -1,8 +1,8 @@
 from django.core.management.base import BaseCommand
-from connections.platforms.twitch import Bot
+from django.conf import settings
 from chatengine.engine import ChatEngine
 from chatengine.models import ChatBot
-
+from connections.platforms.discord_connection import set_chatengine , get_discord_client
 
 class Command(BaseCommand):
     help = 'A bot indítása...'
@@ -14,5 +14,7 @@ class Command(BaseCommand):
         nickanem = options["nickname"]
         chatbot = ChatBot.objects.get(nickname=nickanem)
         chatengine = ChatEngine(chatbot=chatbot)
-        bot = Bot(chatengine=chatengine)
-        bot.run()
+        set_chatengine(chatengine)
+        discord_client = get_discord_client()
+        discord_client.run(settings.DISCORD_ACCESS_TOKEN)
+

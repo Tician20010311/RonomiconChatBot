@@ -113,6 +113,7 @@ TWITCH_CLIENT_SECRET = os.environ.get("TWITCH_CLIENT_SECRET")
 TWITCH_SERVER_URL = "https://id.twitch.tv/oauth2/token"
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 TWITCH_ACCESS_TOKEN= os.environ.get("TWITCH_ACCESS_TOKEN")
+DISCORD_ACCESS_TOKEN = os.environ.get("DISCORD_ACCESS_TOKEN")
 
 STATIC_URL = 'static/'
 

@@ -8,6 +8,9 @@ from chatengine.games import Roulette , Blackjack
 
 
 class ChatEngine:
+
+    DISCORD_BOT_ID = "<@1366406460413706240>"
+
     def __init__(self, chatbot):
         self.chatbot = chatbot
         self.simple_commands = {}
@@ -139,6 +142,8 @@ class ChatEngine:
             source == "twitch"
             and f"@{self.chatbot.nickname.lower()}" in message.lower()
         ):
+            response = self.generate_generic_response(sender, message)
+        elif source == "discord" and self.DISCORD_BOT_ID in message:
             response = self.generate_generic_response(sender, message)
         log.response = response
         await sync_to_async(log.save)()

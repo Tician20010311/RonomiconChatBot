@@ -33,7 +33,6 @@ class ChatUser(models.Model):
     class Meta:
         unique_together = ('chatbot', 'platform', 'username')
 
-
 class SimpleCommands(models.Model):
     chatbot = models.ForeignKey(ChatBot, on_delete=models.CASCADE)
     command = models.CharField(max_length=100,unique=True)
@@ -42,7 +41,6 @@ class SimpleCommands(models.Model):
     def __str__(self):
         return f"{self.command} -> {self.response}"
     
-
 class ChatLog(models.Model):
     chatbot = models.ForeignKey(ChatBot, on_delete=models.CASCADE)
     platform = models.CharField(max_length=200)
