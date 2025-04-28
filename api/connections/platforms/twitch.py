@@ -30,7 +30,7 @@ class Bot(commands.Bot):
     async def event_message(self, message):
         if message.echo:
             return
-        print(message.content)
+        print(f"{message.author.name}: {message.content}")
         response = await self.chatengine.get_response(self.SOURCE_NAME,message.author.name, message.content)
         if response:
             message_arr = []

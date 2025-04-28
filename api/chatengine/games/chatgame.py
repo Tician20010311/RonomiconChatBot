@@ -4,5 +4,5 @@ class ChatGame:
         self.chatbot = chatbot
         
 
-    async def player_move(self,chatuser,move):
+    async def player_move(self,chatuser,move,log):
         pass

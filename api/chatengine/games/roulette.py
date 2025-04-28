@@ -4,7 +4,7 @@ from asgiref.sync import sync_to_async
 
 class Roulette(ChatGame):
 
-    async def player_move(self,chatuser,move):
+    async def player_move(self,chatuser,move, log):
         response = ""
         instructions = f"Kedves @{chatuser.nickname} a rulett parancshoz add meg , hogy mire teszel és mennyit. Tehetsz az alábbiakra : piros , fekete , konkrét szám, páros , páratlan , alacsony (1-18) , magas (19-36)."
         if move == f"{self.chatbot.twitch_prefix}rulett":

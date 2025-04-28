@@ -51,7 +51,23 @@ class Blackjack(ChatGame):
         self.players[chatuser.username].hand_value = 0
         chatuser.current_score -= bet
 
+    def get_hand_value(self, hand):
+        hand_value = 0
+        for card in hand:
+            card_value = card % 13 + 2
+            if card_value < 10:
+                hand_value += card_value 
+            elif card_value < 14:
+                hand_value += 10
+            else: 
+                hand_value += 11
+        if hand_value > 21 and 0 in [card % 13 for card in hand]:
+            hand_value -= 10
+        return hand_value
+    
+
     async def settlement(self):
+        log_context = ""
         response = ""
         cnt_not_standing_players = len([player for player in self.players.values() if not player.did_stand])
         if cnt_not_standing_players == 0:
@@ -61,14 +77,14 @@ class Blackjack(ChatGame):
                 dealer_hand_value -= 10
             while dealer_hand_value < 17:
                 self.own_hand.append(self.pull_from_deck())
-                dealer_hand_value = sum([card % 13 + 2 for card in self.own_hand])
-                if dealer_hand_value > 21 and 0 in [card % 13 for card in self.own_hand]:
-                    dealer_hand_value -= 10
+                dealer_hand_value = self.get_hand_value(self.own_hand)
+            log_context += f"Az osztó lapjai: {' '.join([self.card_to_str(card) for card in self.own_hand])}. Pontok: {dealer_hand_value}.\n"
             response += f"Az osztó lapjai: {' '.join([self.card_to_str(card) for card in self.own_hand])}. (takarva) "
             for player_tuple in self.players.items():
                 player = player_tuple[1]
                 player_won = False
                 if player.hand_value == 21 and dealer_hand_value != 21:
+                    log_context += f"{player.visible_name} nyert , 21 ponttal. \n"
                     player_won = True
                 elif player.hand_value > dealer_hand_value and not player.is_busted:
                     player_won = True
@@ -89,26 +105,14 @@ class Blackjack(ChatGame):
                     player for player in self.players.values() if not player.did_stand][0]
                 response += f"Kedves @{not_standing_player.visible_name} döntésére várunk! "
             response += f"Még {cnt_not_standing_players} játékosnak döntenie kell! "
+        log_context += log_context
         return response
 
 
-    def update_hand_value(self, player):
-        hand_value = 0
-        for card in player.hand:
-            card_value = card % 13 + 2
-            if card_value < 10:
-                hand_value += card_value 
-            elif card_value < 14:
-                hand_value += 10
-            else: 
-                hand_value += 11
-        if hand_value > 21 and 0 in [card % 13 for card in player.hand]:
-            hand_value -= 10
-        player.hand_value = hand_value
 
-
-    async def player_move(self, chatuser, move):
+    async def player_move(self, chatuser, move, log):
         response = ""
+        log_context = ""
         params = move.split(" ")[1:]
         if self.game_state == self.STATE_WAITING_FOR_BETS and (datetime.datetime.now() - self.game_started).seconds > 60:
             self.game_state = self.STATE_DEAL_HANDS
@@ -129,6 +133,7 @@ class Blackjack(ChatGame):
             if player_bet > chatuser.current_score:
                 return f"Kedved @{chatuser.visible_name}, nincs ennyi pontod , jelenleg ennyi pontod van : {chatuser.current_score}. "
             # A new game has started with a player joining
+            log_context += f"Új játék indult @{chatuser.visible_name} által , a tétje: {player_bet}. Eredeti pont: {chatuser.current_score}.\n"
             self.add_player_to_game(chatuser, player_bet)
             self.game_state = self.STATE_WAITING_FOR_BETS
             self.game_started = datetime.datetime.now()
@@ -147,18 +152,22 @@ class Blackjack(ChatGame):
                 chatuser.current_score += self.players[chatuser.username].bet
                 self.players[chatuser.username].bet = player_bet
                 chatuser.current_score -= player_bet
+                log_context += f" @{chatuser.visible_name} megváltoztatta a tétjét: {player_bet}. Eredeti pont: {chatuser.current_score}.\n"
                 response = f"Kedves @{chatuser.visible_name}, a téted megváltozott : {player_bet} ."
             else:
                 self.add_player_to_game(chatuser, player_bet)
-                response = f"Kedves @{chatuser.visible_name}, a téted : {player_bet}. "
+                log_context += f" @{chatuser.visible_name} beszállt a játékba , a tétje: {player_bet}. Eredeti pont: {chatuser.current_score}.\n"
+                response = f"Kedves @{chatuser.visible_name} beszálltál, a téted : {player_bet}. "
         elif self.game_state == self.STATE_DEAL_HANDS:
             # Shuffle the deck
             # Deal two cards to each player
             self.own_hand = [self.pull_from_deck(), self.pull_from_deck()]
-            response = f"Az osztó lapjai: {self.card_to_str(self.own_hand[0])} {self.card_to_str(self.own_hand[1])}. "
+            log_context += f"Az osztó lapjai: {self.card_to_str(self.own_hand[0])} {self.card_to_str(self.own_hand[1])}.\n"
+            response = f"Az osztó lapjai: {self.card_to_str(self.own_hand[0])}. "
             for player_tuple in self.players.items():
                 player = player_tuple[1]
                 player.hand = [self.pull_from_deck(), self.pull_from_deck()]
+                log_context += f" @{player.visible_name} lapjai: {self.card_to_str(player.hand[0])} {self.card_to_str(player.hand[1])}.\n"
                 response += f"Kedves @{player.visible_name}, a lapjaid: {self.card_to_str(player.hand[0])} {self.card_to_str(player.hand[1])} "
             response += f"Játékosok döntsetek ! hit vagy stand. "
             self.game_state = self.STATE_WAITING_FOR_MOVES
@@ -173,24 +182,30 @@ class Blackjack(ChatGame):
             player = self.players[chatuser.username]
             if player_move not in ["hit", "stand"]:
                 return f"Kedves @{chatuser.visible_name}, csak hit vagy stand lehet a válaszod. "
+            log_context += f" @{chatuser.visible_name} válasza: {player_move}."
             if player_move == "hit":
                 player.hand.append(self.pull_from_deck())
-                self.update_hand_value(player)
+                player.hand_value = self.get_hand_value(player.hand)
                 if player.hand_value > 21:
                     response = f"Kedves @{player.visible_name}, vesztettél ! Lapjaid: {' '.join([self.card_to_str(card) for card in player.hand])}. "
                     player.did_stand = True
                     player.is_busted = True
+                    log_context += f"{player.visible_name} vesztett , ennyi pontal: {player.hand_value} \n"
                 elif player.hand_value == 21:
                     response = f"Kedves @{chatuser.visible_name}, 21 pontod van. Lapjaid: {' '.join([self.card_to_str(card) for card in player.hand])}. "
                     player.did_stand = True
                 else:
+                    log_context += f"{player.visible_name} lapja: {' '.join([self.card_to_str(card) for card in player.hand])}.\n"
                     response = f"Kedves @{player.visible_name}, lapjaid: {' '.join([self.card_to_str(card) for card in player.hand])}. Hit vagy stand? "
             elif player_move == "stand":
-                self.update_hand_value(player)
+                player.hand_value = self.get_hand_value(player.hand)
                 response = f"@{player.visible_name}, rendben, lapjaid : {' '.join([self.card_to_str(card) for card in player.hand])} "
                 player.did_stand = True
-            response += await self.settlement()
+            settlement_results = await self.settlement(log)
+            response += settlement_results
+            log_context += log_context
 
+        log.context += log_context
         await sync_to_async(chatuser.save)()
         print(f"Ronomicon: {response}")
         return response

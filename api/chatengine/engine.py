@@ -1,4 +1,4 @@
-from chatengine.models import SimpleCommands, ChatUser
+from chatengine.models import SimpleCommands, ChatUser , ChatLog
 from django.template import Context, Template
 from asgiref.sync import sync_to_async
 from langchain_openai import ChatOpenAI
@@ -77,19 +77,32 @@ class ChatEngine:
         )
         return chatuser
 
-    async def play_roulette(self, sender, message):
+    async def play_roulette(self, sender, message, log):
+        
         chatuser = await self.get_or_create_chatuser(sender)
         game = self.games["rulett"]
-        return await game.player_move(chatuser, message)
+        return await game.player_move(chatuser, message, log)
 
-    async def play_blackjack(self, sender, message):
+    async def play_blackjack(self, sender, message, log):
         chatuser = await self.get_or_create_chatuser(sender)
         game = self.games["blackjack"]
-        return await game.player_move(chatuser, message)
+        return await game.player_move(chatuser, message, log)
 
     async def get_response(self, source, sender, message):
+        chatuser = await self.get_or_create_chatuser(sender)
+        log = await sync_to_async(ChatLog.objects.create)(
+            chatbot=self.chatbot,
+            platform=source,
+            sender=sender,
+            message=message,
+            chatuser=chatuser,
+            context="",
+        )
+        await sync_to_async(log.save)()
+
         # await sync_to_async(self.chatbot.refresh_from_db())
         await self.update_data()
+        response = ""
         command = ""
         non_command = ""
         matching_non_commands = [
@@ -102,29 +115,31 @@ class ChatEngine:
                 for c in points_commands
             ]
         ):
-            chatuser = await self.get_or_create_chatuser(sender)
-            return f"Kedves {sender}, jelenelegi pontszámod: {chatuser.current_score}"
+            response = f"Kedves {sender}, jelenelegi pontszámod: {chatuser.current_score}"
+            # TODO: Iterate over the games and check if it's a game command
         elif message.startswith(f"{self.chatbot.twitch_prefix}rulett"):
-            return await self.play_roulette(sender, message)
+            response = await self.play_roulette(sender, message, log)
         elif message.startswith(f"{self.chatbot.twitch_prefix}blackjack"):
-            return await self.play_blackjack(sender, message)
+            response = await self.play_blackjack(sender, message, log)
         # Ha a szöveg egy kész parancs
         if matching_non_commands:
             non_command = matching_non_commands[0]
             template = Template(self.simple_commands[non_command])
             context = Context({"sender": sender, "message": message})
-            return self.rephrase_text(template.render(context))
+            response = self.rephrase_text(template.render(context))
         # Ha a szöveg előtt prefixet kap ("!")
         elif source == "twitch" and message.startswith(self.chatbot.twitch_prefix):
             command = message[1:]
             method = getattr(self, "on_" + command, None)
             if method:
                 response = method(sender, message)
-                return self.rephrase_text(response)
+                response = self.rephrase_text(response)
         # Ha "@"
         elif (
             source == "twitch"
             and f"@{self.chatbot.nickname.lower()}" in message.lower()
         ):
-            return self.generate_generic_response(sender, message)
-        return ""
+            response = self.generate_generic_response(sender, message)
+        log.response = response
+        await sync_to_async(log.save)()
+        return response

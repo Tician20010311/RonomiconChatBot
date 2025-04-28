@@ -49,6 +49,7 @@ class ChatLog(models.Model):
     chatuser = models.ForeignKey(ChatUser, on_delete=models.CASCADE , blank=True, null=True)    
     sender = models.CharField(max_length=200)
     message = models.TextField()
+    response = models.TextField(blank=True, null=True)
     context = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
